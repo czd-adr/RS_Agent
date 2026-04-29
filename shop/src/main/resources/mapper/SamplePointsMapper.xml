@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xmut.shop.mapper.SamplePointsMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.xmut.shop.entity.SamplePoints">
+        <id column="geom" property="geom" />
+        <result column="grass" property="grass" />
+        <result column="id" property="id" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        geom, grass, id
+    </sql>
+        <select id="pageC" resultType="com.xmut.shop.entity.SamplePoints">
+            select * from sample_points
+        </select>
+
+        <select id="pageCC" resultType="com.xmut.shop.entity.SamplePoints">
+            select * from sample_points ${ew.customSqlSegment}
+        </select>
+</mapper>
