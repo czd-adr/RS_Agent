@@ -8,10 +8,12 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+// 核心变化：由 javax 变更为 jakarta
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.util.ArrayList;
 
@@ -19,27 +21,30 @@ import java.util.ArrayList;
 public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        // 1. 获取请求头中的 token
-        String token = request.getHeader("Authorization");
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
 
-        // 如果 token 为空，直接放行（交给后面的 Security 规则判断是否拦截）
+        // 1. 使用 Java 17 的 var 关键字简化局部变量（可选，更现代）
+        var token = request.getHeader("Authorization");
+
+        // 如果 token 为空，直接放行
         if (!StringUtils.hasText(token)) {
             filterChain.doFilter(request, response);
             return;
         }
 
         // 2. 解析 token
-        Claims claims = JwtUtils.parseToken(token);
+        var claims = JwtUtils.parseToken(token);
         if (claims == null) {
-            // token 非法或过期
             filterChain.doFilter(request, response);
             return;
         }
 
-        // 3. 将解析出来的用户信息存入 SecurityContext 上下文，告知系统此用户已登录
-        // 这里可以根据 claim 里的 role 封装权限信息
-        UsernamePasswordAuthenticationToken authenticationToken =
+        // 3. 封装用户信息
+        // 注意：如果你在 Java 17 中使用了较新的 Spring Security，
+        // 建议在这里明确指定权限，哪怕是空的 ArrayList
+        var authenticationToken =
                 new UsernamePasswordAuthenticationToken(claims.getSubject(), null, new ArrayList<>());
 
         SecurityContextHolder.getContext().setAuthentication(authenticationToken);

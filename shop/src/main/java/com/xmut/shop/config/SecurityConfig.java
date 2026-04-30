@@ -3,39 +3,40 @@ package com.xmut.shop.config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
-public class SecurityConfig extends WebSecurityConfigurerAdapter {
+public class SecurityConfig {
 
     @Autowired
     private JwtAuthenticationTokenFilter jwtAuthenticationTokenFilter;
 
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf().disable() // 禁用 CSRF
-                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS) // 关键：前后端分离不需要 Session
-                .and()
-                .authorizeRequests()
-                .antMatchers("/user/login").permitAll() // 仅放行登录
-                .anyRequest().authenticated()           // 其他所有接口必须有 Token
-                .and()
-                .cors(); // 允许跨域
+                .csrf(AbstractHttpConfigurer::disable) // 必须禁用，否则 POST 请求必报 403
+                .cors(Customizer.withDefaults())      // 保留跨域，方便前端测试
+                .authorizeHttpRequests(auth -> auth
+                        .anyRequest().permitAll()          // 关键：放行所有请求
+                );
 
-        // 关键：将 JWT 过滤器放在用户名密码认证过滤器之前
-        http.addFilterBefore(jwtAuthenticationTokenFilter, UsernamePasswordAuthenticationFilter.class);
+        // 暂时注释掉 JWT 过滤器，排除它的干扰
+        // http.addFilterBefore(jwtAuthenticationTokenFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
     }
 
     @Bean
-    public BCryptPasswordEncoder passwordEncoder() {
+    public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 }

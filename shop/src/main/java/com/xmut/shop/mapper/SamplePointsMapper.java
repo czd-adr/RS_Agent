@@ -1,13 +1,9 @@
 package com.xmut.shop.mapper;
 
-import com.xmut.shop.entity.Bare;
-import com.xmut.shop.entity.PV;
-import com.xmut.shop.entity.RfArea;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.xmut.shop.entity.SamplePoints;
-import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
-import org.mapstruct.Mapper;
+import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
 
@@ -29,9 +25,5 @@ public interface SamplePointsMapper extends BaseMapper<SamplePoints> {
     @Select("SELECT id, geom, grass FROM sample_points WHERE grass = #{grass}")
     List<SamplePoints> selectRealPoint(int grass);
 
-    @Select("SELECT geom FROM \"Bare\"")
-    List<Bare> selectAllPoints();
 
-    @Select("SELECT geom FROM \"Photovoltaic_Points1\"")
-    List<PV> selectPhotovoltaicPoints();
 }

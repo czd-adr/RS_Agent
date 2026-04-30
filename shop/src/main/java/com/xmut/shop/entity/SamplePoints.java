@@ -1,8 +1,6 @@
 package com.xmut.shop.entity;
 
 import java.io.Serializable;
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.locationtech.jts.geom.Coordinate;
@@ -23,14 +21,12 @@ import static com.xmut.shop.common.Util.hexStringToByteArray;
  */
 @Data
 @EqualsAndHashCode(callSuper = false)
-@ApiModel(value="SamplePoints对象", description="")
 public class SamplePoints implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     private String geom;
 
-    @ApiModelProperty(value = "1hhmc2jp3lw4river5other")
     private Integer grass;
 
     private Integer id;

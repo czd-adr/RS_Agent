@@ -1,11 +1,7 @@
 package com.xmut.shop.service;
 
-import com.xmut.shop.entity.Bare;
-import com.xmut.shop.entity.PV;
 import com.xmut.shop.entity.SamplePoints;
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.xmut.shop.mapper.SamplePointsMapper;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 
@@ -23,7 +19,4 @@ public interface SamplePointsService extends IService<SamplePoints> {
 
     List<SamplePoints> selectRealPoint(int grass);
 
-    List<Bare> getAllPoints();
-
-    List<PV> selectPhotovoltaicPoints();
 }

@@ -1,7 +1,5 @@
 package com.xmut.shop.service.impl;
 
-import com.xmut.shop.entity.Bare;
-import com.xmut.shop.entity.PV;
 import com.xmut.shop.entity.SamplePoints;
 import com.xmut.shop.mapper.SamplePointsMapper;
 import com.xmut.shop.service.SamplePointsService;
@@ -32,13 +30,5 @@ public class SamplePointsServiceImpl extends ServiceImpl<SamplePointsMapper,Samp
     public List<SamplePoints> selectRealPoint(int grass){
         return baseMapper.selectRealPoint(grass);
     }
-    @Override
-    public List<Bare> getAllPoints() {
-        return baseMapper.selectAllPoints();
-    }
 
-    @Override
-    public List<PV> selectPhotovoltaicPoints() {
-        return baseMapper.selectPhotovoltaicPoints();
-    }
 }

@@ -1,8 +1,6 @@
 package com.xmut.shop.controller;
 
 
-import com.xmut.shop.entity.Bare;
-import com.xmut.shop.entity.PV;
 import com.xmut.shop.entity.SamplePoints;
 import com.xmut.shop.service.SamplePointsService;
 import org.geotools.coverage.grid.GridCoordinates2D;
@@ -15,7 +13,6 @@ import org.geotools.geojson.geom.GeometryJSON;
 import org.geotools.geometry.DirectPosition2D;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.geometry.jts.ReferencedEnvelope;
-import org.geotools.geometry.jts.WKBReader;
 import org.geotools.referencing.CRS;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
 import org.geotools.util.factory.Hints;
@@ -39,8 +36,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static com.xmut.shop.common.Util.hexStringToByteArray;
 
 /**
  * <p>
@@ -520,83 +515,7 @@ public class SamplePointsController {
             return null;
         }
     }
-    @PostMapping("/savi")
-    public Map<String, Double> getMeanSAVI() {
-        Map<String, Double> result = new HashMap<>();
-        try {
-            // 1️⃣ 获取裸地点
-            List<Bare> barePoints = samplePointsService.getAllPoints();
-            if (barePoints == null || barePoints.isEmpty()) {
-                System.out.println("未找到裸地样本点");
-            }
 
-            // 2️⃣ 获取光伏点
-            List<PV> pvPoints = samplePointsService.selectPhotovoltaicPoints();
-            if (pvPoints == null || pvPoints.isEmpty()) {
-                System.out.println("未找到光伏样本点");
-            }
-
-            // 3️⃣ 打开 SAVI 文件
-            File file = new File("D:/bandWZY/SAVI_withBands_2020_geo2/SAVI_withBands_2020_geo2.tif");
-            if (!file.exists()) {
-                System.out.println("SAVI 文件不存在！");
-                return result;
-            }
-
-            GeoTiffReader reader = new GeoTiffReader(file, new Hints(Hints.FORCE_LONGITUDE_FIRST_AXIS_ORDER, Boolean.TRUE));
-            GridCoverage2D coverage = reader.read(null);
-            GridGeometry2D gridGeometry = coverage.getGridGeometry();
-            Raster raster = coverage.getRenderedImage().getData();
-
-            // 4️⃣ 计算裸地 SAVI 均值
-            double bareMean = calculateMeanSAVI(barePoints, gridGeometry, raster);
-            System.out.println("裸地 SAVI 均值: " + bareMean);
-            result.put("bare", bareMean);
-
-            // 5️⃣ 计算光伏 SAVI 均值
-            double pvMean = calculateMeanSAVI(pvPoints, gridGeometry, raster);
-            System.out.println("光伏 SAVI 均值: " + pvMean);
-            result.put("pv", pvMean);
-
-            // ✅ 返回结果
-            return result;
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return result;
-        }
-    }
-    private double calculateMeanSAVI(List<?> points, GridGeometry2D gridGeometry, Raster raster) {
-        List<Double> saviValues = new ArrayList<>();
-
-        for (Object obj : points) {
-            Coordinate coord = null;
-            if (obj instanceof Bare) {
-                coord = ((Bare) obj).getCoord();
-            } else if (obj instanceof PV) {
-                coord = ((PV) obj).getCoord();
-            }
-
-            if (coord == null) continue;
-
-            try {
-                DirectPosition2D posWorld = new DirectPosition2D(coord.x, coord.y);
-                GridCoordinates2D gridCoord = gridGeometry.worldToGrid(posWorld);
-
-                double[] pixel = new double[3]; // 三个波段：B4、B8、SAVI
-                raster.getPixel(gridCoord.x, gridCoord.y, pixel);
-
-                double savi = pixel[2]; // 第三通道为 SAVI
-                if (!Double.isNaN(savi)) {
-                    saviValues.add(savi);
-                }
-            } catch (Exception e) {
-                continue; // 坐标出界或异常跳过
-            }
-        }
-
-        return saviValues.stream().mapToDouble(Double::doubleValue).average().orElse(Double.NaN);
-    }
 
 
 

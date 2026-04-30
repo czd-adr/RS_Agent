@@ -5,7 +5,7 @@ import com.xmut.shop.entity.LandCover;
 import com.xmut.shop.entity.User;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
-import org.mapstruct.Mapper;
+import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
 
