@@ -3,6 +3,8 @@ package com.xmut.shop.controller;
 
 import com.xmut.shop.entity.SamplePoints;
 import com.xmut.shop.service.SamplePointsService;
+import dev.langchain4j.agent.tool.P;
+import dev.langchain4j.agent.tool.Tool;
 import org.geotools.coverage.grid.GridCoordinates2D;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.coverage.grid.GridGeometry2D;
@@ -26,6 +28,7 @@ import org.opengis.parameter.ParameterValueGroup;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.MathTransform;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.*;
 
 import java.awt.image.Raster;
@@ -46,6 +49,7 @@ import java.util.Map;
  * @since 2025-08-13
  */
 @RestController
+@Component
 @RequestMapping("/sample-points")
 public class SamplePointsController {
     @Autowired
@@ -452,7 +456,13 @@ public class SamplePointsController {
     }
 
     @PostMapping("/monthNDVIs")
-    public Map<String, Double> getMonthlyNDVIs(@RequestParam int grass,@RequestParam int year) {
+    @Tool("查询特定植被类型在指定年份的逐月平均 NDVI（植被覆盖指数）数据。" +
+            "当你需要分析某种植物全年的生长趋势、长势变化或季节性规律时，请调用此工具。" +
+            "返回结果是一个 Map，包含 12 个月的月份缩写及其对应的 NDVI 均值（-1.0 到 1.0 之间）。")
+    public Map<String, Double> getMonthlyNDVIs(
+            @P("植被类型的分类编号。1: 互花米草, 2: 碱蓬 , 3: 芦苇, 4: 其他。") @RequestParam int grass,
+            @P("查询的完整年份，例如 2022 或 2023。") @RequestParam int year
+    ) {
         Map<String, Double> result = new HashMap<>();
         String yearSuffix = String.valueOf(year).substring(2);
         try {
@@ -507,6 +517,7 @@ public class SamplePointsController {
                 double mean = values.stream().mapToDouble(Double::doubleValue).average().orElse(Double.NaN);
                 result.put(month, mean);
             }
+
 
             return result;
 
