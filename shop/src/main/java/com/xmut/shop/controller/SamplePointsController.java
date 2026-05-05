@@ -55,6 +55,11 @@ public class SamplePointsController {
     @Autowired
     public  SamplePointsService samplePointsService;
 
+    public List<Double> getListCache() { return orderedListCache.get(); }
+
+    // 关键：在对话结束后清理内存
+    public void clear() { orderedListCache.remove(); }
+    private final ThreadLocal<List<Double>> orderedListCache = new ThreadLocal<>();
     @GetMapping("/list")
     public List<SamplePoints> list(){
         return samplePointsService.list();
@@ -460,7 +465,7 @@ public class SamplePointsController {
             "当你需要分析某种植物全年的生长趋势、长势变化或季节性规律时，请调用此工具。" +
             "返回结果是一个 Map，包含 12 个月的月份缩写及其对应的 NDVI 均值（-1.0 到 1.0 之间）。")
     public Map<String, Double> getMonthlyNDVIs(
-            @P("植被类型的分类编号。1: 互花米草, 2: 碱蓬 , 3: 芦苇, 4: 其他。") @RequestParam int grass,
+            @P("grass: 植被类型的分类编号。1: 互花米草, 2: 碱蓬 , 3: 芦苇, 4: 其他。") @RequestParam int grass,
             @P("查询的完整年份，例如 2022 或 2023。") @RequestParam int year
     ) {
         Map<String, Double> result = new HashMap<>();
@@ -518,7 +523,15 @@ public class SamplePointsController {
                 result.put(month, mean);
             }
 
+            List<Double> orderedList = new ArrayList<>();
+            for (String m : months) {
+                // 严格按照 months 数组的顺序取值，确保数组索引与月份对应
+                // 如果某月没数据，取 0.0 或 Double.NaN
+                orderedList.add(result.getOrDefault(m, 0.0));
+            }
 
+            // 3. 【存入缓存】：供 Controller 的 Flux onComplete 使用
+            orderedListCache.set(orderedList);
             return result;
 
         } catch (Exception e) {
