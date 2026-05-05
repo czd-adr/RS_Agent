@@ -7,9 +7,7 @@ import dev.langchain4j.service.spring.AiServiceWiringMode;
 import reactor.core.publisher.Flux;
 
 @AiService(
-//        wiringMode = AiServiceWiringMode.EXPLICIT,//手动装配
-//        chatModel = "openAiChatModel",
-//        streamingChatModel = "openAiStreamingChatModel"
+        chatMemory = "chatMemory"//配置会话记忆对象
 )
 public interface WebGisAgent {
     @SystemMessage("""
