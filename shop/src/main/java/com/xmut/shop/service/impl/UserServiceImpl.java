@@ -24,26 +24,11 @@ import java.util.List;
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
-    // 1. 定义为 final，确保不可变性
-    private final PasswordEncoder encoder;
-
-    // 2. 构造器注入（Spring Boot 会自动完成，无需显式写 @Autowired）
-    public UserServiceImpl(PasswordEncoder encoder) {
-        this.encoder = encoder;
-    }
-
     @Override
     public User login(String username, String password) {
-        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(User::getUsername, username);
-        User user = this.getOne(wrapper);
-
-        if (user != null && encoder.matches(password, user.getPassword())) {
-            String token = JwtUtils.createToken(user.getId(), user.getUsername(), user.getRole());
-            user.setToken(token);
-            user.setPassword(null);
-            return user;
-        }
-        return null;
+        // 直接在查询条件中匹配账号和密码
+        return this.getOne(new LambdaQueryWrapper<User>()
+                .eq(User::getUsername, username)
+                .eq(User::getPassword, password));
     }
 }

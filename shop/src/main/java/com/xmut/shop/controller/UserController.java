@@ -24,23 +24,19 @@ public class UserController {
     @PostMapping("/login")
     public Map<String, Object> login(@RequestBody User loginParam) {
         Map<String, Object> result = new HashMap<>();
-        System.out.println("param"+loginParam);
-        // 1. 调用 Service 进行登录校验
+
+        // 调用 Service 直接传入对象进行简单校验
         User user = userService.login(loginParam.getUsername(), loginParam.getPassword());
 
-        // 2. 根据查询结果返回不同的响应
         if (user != null) {
-            // 登录成功
             result.put("status", "success");
             result.put("msg", "登录成功");
-            // 建议：实际开发中不要把密码返回给前端，可以手动置空
+            // 关键点：只返回前端需要的 id 和 role，为了安全屏蔽密码
             user.setPassword(null);
             result.put("data", user);
         } else {
-            // 登录失败
             result.put("status", "error");
             result.put("msg", "用户名或密码错误");
-            result.put("data", null);
         }
 
         return result;
