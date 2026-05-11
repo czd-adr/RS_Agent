@@ -7,7 +7,8 @@ import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.spring.AiService;
 
 @AiService(
-        chatMemoryProvider = "chatMemoryProvider"
+        chatMemoryProvider = "chatMemoryProvider",
+        contentRetriever = "contentRetriever"//配置向量数据库检索对象
 )
 public interface WebGisChartAgent {
     @SystemMessage("""
