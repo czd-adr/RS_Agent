@@ -18,10 +18,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.Collections;
 import java.util.List;
 
 @Configuration
 public class CommonConfig {
+    public static boolean enableRAG = true;
     @Autowired
     private ChatMemoryStore redisChatMemoryStore;
     //构建会话记忆对象
@@ -63,13 +65,30 @@ public class CommonConfig {
     }
 
     // 3. 构建向量数据库检索对象，供 AiService 使用
+//    @Bean("contentRetriever")
+//    public ContentRetriever contentRetriever(EmbeddingStore<TextSegment> store) {
+//        return EmbeddingStoreContentRetriever.builder()
+//                .embeddingStore(store)
+//                .minScore(0.6) // 稍微提高匹配阈值，确保遥感分析的准确性
+//                .maxResults(3) // 每次检索前3条相关背景
+//                .build();
+//    }
     @Bean("contentRetriever")
     public ContentRetriever contentRetriever(EmbeddingStore<TextSegment> store) {
-        return EmbeddingStoreContentRetriever.builder()
+        // 创建真实的检索器
+        ContentRetriever realRetriever = EmbeddingStoreContentRetriever.builder()
                 .embeddingStore(store)
-                .minScore(0.6) // 稍微提高匹配阈值，确保遥感分析的准确性
-                .maxResults(3) // 每次检索前3条相关背景
+                .minScore(0.5)
+                .maxResults(3)
                 .build();
-    }
 
+        // 返回一个包装后的检索器：根据开关决定返回内容还是空集合
+        return query -> {
+            if (enableRAG) {
+                return realRetriever.retrieve(query);
+            } else {
+                return Collections.emptyList(); // 关掉 RAG 时，返回空
+            }
+        };
+    }
 }

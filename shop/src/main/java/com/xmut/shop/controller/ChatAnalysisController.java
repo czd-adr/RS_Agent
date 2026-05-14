@@ -4,12 +4,14 @@ import com.xmut.shop.DTO.AiNDVIResponse;
 import com.xmut.shop.DTO.ChatRequest;
 import com.xmut.shop.DTO.MessageDTO;
 import com.xmut.shop.DTO.NDVIChartDTO;
+import com.xmut.shop.Utils.EvaluationUtils;
 import com.xmut.shop.agent.WebGisAgent;
 import com.xmut.shop.agent.WebGisChartAgent;
 import com.xmut.shop.repository.RedisChatMemoryStore;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -93,4 +95,6 @@ public class ChatAnalysisController {
         // AI 会在这里自动完成：意图识别 -> 调用 getMonthlyNDVIs -> 组装 NDVIChartDTO
         return webGisChartAgent.chatChart(memoryId, message);
     }
+
+
 }
