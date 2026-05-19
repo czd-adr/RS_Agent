@@ -2,9 +2,12 @@ package com.xmut.shop.controller;
 
 import com.xmut.shop.DTO.RagTestCase;
 import com.xmut.shop.Utils.EvaluationUtils;
+import com.xmut.shop.Utils.SpatialSemanticEvaluationUtils;
 import com.xmut.shop.agent.WebGisAgent;
 import com.xmut.shop.agent.WebGisAgentNoRAG;
 import com.xmut.shop.common.CommonConfig;
+import com.xmut.shop.service.RfAreaService;
+import dev.langchain4j.model.embedding.EmbeddingModel;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,6 +23,10 @@ public class RagsEvaluationTest {
     private WebGisAgent webGisAgent;
     @Autowired
     private WebGisAgentNoRAG webGisAgentNoRAG;
+    @Autowired
+    private RfAreaService rfAreaService;
+    @Autowired
+    private EmbeddingModel embeddingModel;
     @Test
     public void evaluateRecall() {
         // 建议：测试前先清空或使用特定的 memoryId，避免历史干扰
@@ -140,5 +147,52 @@ public class RagsEvaluationTest {
                 .collectList()
                 .map(list -> String.join("", list))
                 .block();
+    }
+
+    @Test
+    public void evaluateSpatialSemanticFusion() {
+        // 1. 模拟用户输入
+        String message = "临洪河口附近入侵的互花米草面积有多大，有什么政策影响？";
+
+        // 2. 设立物理世界与非结构化知识的 Ground Truth
+        Double trueAreaM2 = rfAreaService.calculatePolygonIntersectsArea("临洪河口", 1);
+        double trueAreaHm2 = (trueAreaM2 != null) ? trueAreaM2 / 10000.0 : 145.22;
+
+        // 期待知识库的核心表达（模型会用 Embedding 自动做语义泛化对齐）
+        String groundTruthPolicyText = "互花米草属于外来入侵物种，会威胁本地盐沼植被芦苇和碱蓬，需要物理防除和生态修复";
+
+        // 3. 运行【实验组 (Spatial-RAG 开启)】
+        String experimentalResponse = webGisAgent.chat("exp-session-" + System.currentTimeMillis(), message)
+                .collectList().map(list -> String.join("", list)).block();
+
+        double expArea = SpatialSemanticEvaluationUtils.extractAreaFromText(experimentalResponse);
+        double sSpatialExp = SpatialSemanticEvaluationUtils.calculateSpatialScore(expArea, trueAreaHm2);
+
+        // 💡 传入 embeddingModel，利用大模型做真正的深度向量余弦相似度计算
+        double sSemanticExp = SpatialSemanticEvaluationUtils.calculateSemanticScore(experimentalResponse, groundTruthPolicyText, embeddingModel);
+        double fExp = 0.5 * sSemanticExp + 0.5 * sSpatialExp;
+
+        // 4. 运行【对照组 (No-RAG 纯大模型)】
+        String contrastResponse = webGisAgentNoRAG.chat("norag-session-" + System.currentTimeMillis(), message)
+                .collectList().map(list -> String.join("", list)).block();
+
+        double conArea = SpatialSemanticEvaluationUtils.extractAreaFromText(contrastResponse);
+        double sSpatialCon = SpatialSemanticEvaluationUtils.calculateSpatialScore(conArea, trueAreaHm2);
+
+        // 💡 对照组同样使用深度模型向量化计算
+        double sSemanticCon = SpatialSemanticEvaluationUtils.calculateSemanticScore(contrastResponse, groundTruthPolicyText, embeddingModel);
+        double fCon = 0.5 * sSemanticCon + 0.5 * sSpatialCon;
+
+        // 5. 打印对比实验结果表格
+        System.out.println("\n=======================================================================");
+        System.out.println("   基于深度 Embedding 向量空间的多目标平衡函数 F(x,y) 定量消融实验结果     ");
+        System.out.println("=======================================================================");
+        System.out.println("【真实物理标准 (Ground Truth)】: 临洪河口区域互花米草真实面积 = " + trueAreaHm2 + " 公顷");
+        System.out.println("-----------------------------------------------------------------------");
+        System.out.printf("%-10s | %-16s | %-16s | %-16s\n", "评估组别", "模型语义得分(S_sem)", "空间拓扑(S_spa)", "联合协同函数 F(x,y)");
+        System.out.println("-----------------------------------------------------------------------");
+        System.out.printf("%-10s | %-18.4f | %-18.4f | %-18.4f\n", "实验组(RAG ON)", sSemanticExp, sSpatialExp, fExp);
+        System.out.printf("%-10s | %-18.4f | %-18.4f | %-18.4f\n", "对照组(NoRAG)", sSemanticCon, sSpatialCon, fCon);
+        System.out.println("=======================================================================");
     }
 }

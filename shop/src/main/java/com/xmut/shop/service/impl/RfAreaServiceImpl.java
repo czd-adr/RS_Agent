@@ -31,4 +31,9 @@ public class RfAreaServiceImpl extends ServiceImpl<RfAreaMapper,RfArea> implemen
 
     @Override
     public Double CalculateXgArea(int type){ return baseMapper.CalculateXgArea(type);}
+
+    @Override
+    public Double calculatePolygonIntersectsArea(String poiName, int type) {
+        return baseMapper.calculatePolygonIntersectsArea(poiName, type);
+    }
 }

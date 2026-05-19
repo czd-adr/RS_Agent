@@ -30,5 +30,10 @@ langchain4j:
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
       api-key: sk-7977ba4d46cc4eea853da3fa18ddb35d
       model-name: qwen-plus
-#      log-requests: true
-#      log-responses: true
+    embedding-model:
+      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api-key: sk-7977ba4d46cc4eea853da3fa18ddb35d
+      model-name: text-embedding-v3
+      log-requests: true
+      log-responses: true
+      max-segments-per-batch: 10

@@ -7,6 +7,7 @@ import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.store.embedding.EmbeddingStore;
@@ -26,6 +27,8 @@ public class CommonConfig {
     public static boolean enableRAG = true;
     @Autowired
     private ChatMemoryStore redisChatMemoryStore;
+    @Autowired
+    private EmbeddingModel embeddingModel;
     //构建会话记忆对象
     @Bean
     public ChatMemory chatMemory(){
@@ -51,15 +54,24 @@ public class CommonConfig {
     //构建向量数据库操作对象
     @Bean
     public EmbeddingStore<TextSegment> embeddingStore() {
-        // 加载 content 目录下的所有文档
-        List<Document> documents = ClassPathDocumentLoader.loadDocuments("content");
 
-        // 创建内存向量数据库实例
-        InMemoryEmbeddingStore<TextSegment> store = new InMemoryEmbeddingStore<>();
+        // 加载 content 目录
+        List<Document> documents =
+                ClassPathDocumentLoader.loadDocuments("content");
 
-        // 采用官方推荐的简洁用法：直接将文档向量化并注入存储
-        // 注意：这会自动使用默认的 EmbeddingModel（如未配置则需手动指定）
-        EmbeddingStoreIngestor.ingest(documents, store);
+        // 内存向量库
+        InMemoryEmbeddingStore<TextSegment> store =
+                new InMemoryEmbeddingStore<>();
+
+        // 创建 ingest 对象
+        EmbeddingStoreIngestor ingestor =
+                EmbeddingStoreIngestor.builder()
+                        .embeddingModel(embeddingModel)
+                        .embeddingStore(store)
+                        .build();
+
+        // 使用当前 ingestor
+        ingestor.ingest(documents);
 
         return store;
     }
@@ -80,6 +92,7 @@ public class CommonConfig {
                 .embeddingStore(store)
                 .minScore(0.5)
                 .maxResults(3)
+                .embeddingModel(embeddingModel)
                 .build();
 
         // 返回一个包装后的检索器：根据开关决定返回内容还是空集合

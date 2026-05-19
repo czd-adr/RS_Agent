@@ -32,4 +32,15 @@ public interface RfAreaMapper extends BaseMapper<RfArea> {
 
     @Select("SELECT SUM(area_m2) AS total_area FROM \"xg_area_export\" WHERE  \"class\" = #{type}")
     Double CalculateSvmArea(int type);
+
+    @Select("""
+        SELECT SUM(f.area_m2) AS total_area 
+        FROM "RF_area_export" f
+        WHERE f."class" = #{type}
+        AND ST_Intersects(
+            f.geom, 
+            (SELECT p.geom FROM "spatial_poi" p WHERE p.poi_name = #{poiName} LIMIT 1)
+        )
+    """)
+    Double calculatePolygonIntersectsArea(@Param("poiName") String poiName, @Param("type") int type);
 }
