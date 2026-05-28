@@ -37,27 +37,13 @@ public class CommonConfig {
                 .build();
         return memory;
     }
-    @Bean
-    public ChatMemoryProvider chatMemoryProvider(){
-        ChatMemoryProvider chatMemoryProvider = new ChatMemoryProvider() {
-            @Override
-            public ChatMemory get(Object memoryId) {
-                return MessageWindowChatMemory.builder()
-                        .id(memoryId)
-                        .maxMessages(20)
-                        .chatMemoryStore(redisChatMemoryStore)
-                        .build();
-            }
-        };
-        return chatMemoryProvider;
-    }
     //构建向量数据库操作对象
     @Bean
     public EmbeddingStore<TextSegment> embeddingStore() {
 
         // 加载 content 目录
         List<Document> documents =
-                ClassPathDocumentLoader.loadDocuments("content");
+                ClassPathDocumentLoader.loadDocuments("content2");
 
         // 内存向量库
         InMemoryEmbeddingStore<TextSegment> store =
@@ -75,16 +61,23 @@ public class CommonConfig {
 
         return store;
     }
+    @Bean
+    public ChatMemoryProvider chatMemoryProvider(){
+        ChatMemoryProvider chatMemoryProvider = new ChatMemoryProvider() {
+            @Override
+            public ChatMemory get(Object memoryId) {
+                return MessageWindowChatMemory.builder()
+                        .id(memoryId)
+                        .maxMessages(20)
+                        .chatMemoryStore(redisChatMemoryStore)
+                        .build();
+            }
+        };
+        return chatMemoryProvider;
+    }
 
-    // 3. 构建向量数据库检索对象，供 AiService 使用
-//    @Bean("contentRetriever")
-//    public ContentRetriever contentRetriever(EmbeddingStore<TextSegment> store) {
-//        return EmbeddingStoreContentRetriever.builder()
-//                .embeddingStore(store)
-//                .minScore(0.6) // 稍微提高匹配阈值，确保遥感分析的准确性
-//                .maxResults(3) // 每次检索前3条相关背景
-//                .build();
-//    }
+
+
     @Bean("contentRetriever")
     public ContentRetriever contentRetriever(EmbeddingStore<TextSegment> store) {
         // 创建真实的检索器
@@ -104,4 +97,23 @@ public class CommonConfig {
             }
         };
     }
+
+    //对照组配置
+    // 🛠️ 对照组状态：手动改为直接返回空检索器，彻底切断非结构化文档的检索路径
+//    @Bean("contentRetriever")
+//    public ContentRetriever contentRetriever(EmbeddingStore<TextSegment> store) {
+//        // 强制返回一个无论输入什么都得到空列表的匿名实现，不进行任何向量比对
+//        return query -> Collections.emptyList();
+//    }
+//
+//    // 🛠️ 对照组状态：手动阻断历史记忆，返回一个无存储的干净记忆窗口
+//    @Bean
+//    public ChatMemoryProvider chatMemoryProvider(){
+//        return memoryId -> MessageWindowChatMemory.builder()
+//                .id(memoryId)
+//                .maxMessages(20)
+//                // 💡 核心：把 .chatMemoryStore(redisChatMemoryStore) 注释掉！
+//                // 这样大模型每次对话都是纯粹的初次见面，绝不可能从 Redis 历史缓存里偷看数字
+//                .build();
+//    }
 }

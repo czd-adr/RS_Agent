@@ -3,6 +3,8 @@ package com.xmut.shop.Utils;
 
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.model.embedding.EmbeddingModel;
+
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -73,5 +75,26 @@ public class SpatialSemanticEvaluationUtils {
             System.err.println("提取文本面积失败: " + e.getMessage());
         }
         return 0.0;
+    }
+    // 新增：关键词命中率
+    public static double calculateKeywordHitScore(
+            String response,
+            List<String> keywords
+    ) {
+
+        if (response == null || response.trim().isEmpty()) {
+            return 0.0;
+        }
+
+        int hit = 0;
+
+        for (String keyword : keywords) {
+
+            if (response.contains(keyword)) {
+                hit++;
+            }
+        }
+
+        return (double) hit / keywords.size();
     }
 }
