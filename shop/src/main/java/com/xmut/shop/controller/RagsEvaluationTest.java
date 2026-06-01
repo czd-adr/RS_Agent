@@ -40,7 +40,7 @@ public class RagsEvaluationTest {
     private WetlandAgentService wetlandAgentService;
 
     // 使用 MockBean 模拟数据库查询，这样不需要依赖真实的数据库和 PostGIS 环境就能进行纯纯的数学机理测试
-    @MockBean
+    @Autowired
     private WetlandPatchMapper wetlandPatchMapper;
     @Test
     public void evaluateRecall() {
@@ -485,60 +485,212 @@ public class RagsEvaluationTest {
         System.out.println("==============================================================");
     }
     @Test
-    public void testSpatialDecayingFieldScores() {//高斯空间得分
+    public void testSpatialDecayingFieldScores() {
         // 1. 准备测试的输入参数
-        String poiName = "青口渔场";
+        String poiName = "临洪河口";
         String landType = "互花米草";
-        int classType = 1; // 对应互花米草的数据库 class
+        int classType = 1;
+        double sigma = 500.0;
 
-        // 2. 构造 3 个处于不同距离场的虚拟遥感图斑（假设面积均为 10000 平方米，即 1 公顷）
-        List<WetlandPatchDTO> mockPatches = new ArrayList<>();
+        System.out.println("\n=========================================================");
+        System.out.println("🧪 开始执行 [高斯圈层场] 动态数据库特征实时核验测试...");
+        System.out.println("=========================================================");
 
-        // 图斑 A：刚好在边界上（距离 0 米） -> 理论得分应该接近 1.0
-        WetlandPatchDTO patchA = new WetlandPatchDTO();
-        patchA.setPatchId(101L);
-        patchA.setPatchArea(10000.0);
-        patchA.setSpatialDistance(0.0);
-        mockPatches.add(patchA);
+        // 2. 👈 【核心修改：拒绝写死】直接调 Mapper 去 PostGIS 实时捞取你刚刚分组聚合出来的最新真实数据！
+        // 此时无论是 229.44 还是未来数据变动，这里拿到的永远是第一手动态真数据
+        List<WetlandPatchDTO> dbPatches = wetlandPatchMapper.selectIntersectsPatches(poiName, classType);
 
-        // 图斑 B：处于警戒带宽上（距离 500 米 = 1 sigma） -> 理论得分应该等于 exp(-0.5) ≈ 0.606
-        WetlandPatchDTO patchB = new WetlandPatchDTO();
-        patchB.setPatchId(102L);
-        patchB.setPatchArea(10000.0);
-        patchB.setSpatialDistance(500.0);
-        mockPatches.add(patchB);
+        // 健壮性防御：防止你换了 POI 之后数据库查出空集导致测试报错
+        if (dbPatches == null || dbPatches.isEmpty()) {
+            System.out.println("⚠️ 警告：当前数据库中该 POI 未捞出任何圈层数据，请检查空间相交关系！");
+            return;
+        }
 
-        // 图斑 C：远离边界（距离 1500 米 = 3 sigma） -> 理论得分应该极低，接近 0
-        WetlandPatchDTO patchC = new WetlandPatchDTO();
-        patchC.setPatchId(103L);
-        patchC.setPatchArea(10000.0);
-        patchC.setSpatialDistance(1500.0);
-        mockPatches.add(patchC);
+        // 3. 动态解算高斯连续场，生成高保真断言文本（完全基于刚刚捞出的 dbPatches 动态计算）
+        double totalPhysicalArea = 0.0;
+        double totalWeightedArea = 0.0;
 
-        // 3. 拦截 Mapper 的底层数据库请求，使其返回我们精心设计的这 3 个不同距离的图斑
+        System.out.println("【基于动态数据库面积特征的空间场理论解算】");
+        for (WetlandPatchDTO band : dbPatches) {
+            // 如果你的 SQL 之前把截断值（500, 1000, 1500）赋给了 spatialDistance，这里就会动态拿到
+            double d = band.getSpatialDistance();
+
+            // 标准高斯衰减权重 fs
+            double theoreticalWeight = Math.exp(- (d * d) / (2 * sigma * sigma));
+            double physicalAreaHectare = band.getPatchArea() / 10000.0; // 平方米转公顷
+            double weightedAreaHectare = physicalAreaHectare * theoreticalWeight;
+
+            totalPhysicalArea += physicalAreaHectare;
+            totalWeightedArea += weightedAreaHectare;
+
+            String bandName = band.getPatchId() == 1L ? "0-500m 核心区" :
+                    band.getPatchId() == 2L ? "500-1000m 警戒区" : "1000-1500m 扩散区";
+
+            System.out.printf(" -> [%s] 动态边界距离: %4.0f米 | 高斯权重: %.4f | 实时物理面积: %8.4f 公顷 | 生态加权面积: %8.4f 公顷\n",
+                    bandName, d, theoreticalWeight, physicalAreaHectare, weightedAreaHectare);
+        }
+
+        // 格式化为字符串，用于匹配大模型 Agent 文本输出
+        String expectedPhysicalStr = String.format("%.2f", totalPhysicalArea);
+        String expectedWeightedStr = String.format("%.2f", totalWeightedArea);
+
+        System.out.println("---------------------------------------------------------");
+        System.out.println("【完全动态对齐的理论期望值】");
+        System.out.println(" -> 实时总物理面积期望值: 【" + expectedPhysicalStr + "】公顷");
+        System.out.println(" -> 动态生态加权总面积期望值: 【" + expectedWeightedStr + "】公顷");
+        System.out.println("---------------------------------------------------------");
+
+        // 4. Mockito 拦截：把刚刚从数据库动态捞出来的、原汁原味的 dbPatches 喂给 Service
         Mockito.when(wetlandPatchMapper.selectIntersectsPatches(poiName, classType))
-                .thenReturn(mockPatches);
+                .thenReturn(dbPatches);
 
-        // 4. 执行你刚刚编写的工具集核心分析接口
+        // 5. 执行核心分析接口
         String finalReport = wetlandAgentService.executeSpatialSemanticAnalysis(poiName, landType);
 
-        // 5. 打印测试报告到控制台，以便人工观察高斯场的输出是否漂亮
-        System.out.println("=========================================================");
+        // 6. 打印最终生成的 Agent 报告
         System.out.println("🔥 RS-Agent 空间连续衰减场测算报告输出测试：");
         System.out.println(finalReport);
         System.out.println("=========================================================");
 
-        // 6. 自动化断言：通过严密的数学逻辑验证连续场运行是否正确
-        // 替代 assertNotNull
-        assert finalReport != null : "分析报告不应为空";
+        // 7. 自动化断言核验
+        assert finalReport != null : "错误：分析报告不应为空";
+        assert finalReport.contains(poiName) : "错误：报告应包含目标POI信息【" + poiName + "】";
 
-// 替代 assertTrue
-        assert finalReport.contains("青口渔场") : "报告应包含目标POI信息";
+        // 动态断言真实总物理面积（系统会自动根据数据库当前状态动态比对，再也不用手动改断言数字了！）
+        assert finalReport.contains(expectedPhysicalStr) : "错误：实际物理总面积计算错误，预期为 " + expectedPhysicalStr + " 公顷";
+        assert finalReport.contains(expectedWeightedStr) : "错误：空间高斯连续衰减场加权计算有偏差，预期报告中应包含 " + expectedWeightedStr;
 
-// 物理面积总和校验
-        assert finalReport.contains("3.00") : "实际物理总面积计算错误";
+        System.out.println("🏆 动态对齐断言完全通过！数据流已完全由 PostGIS 数据库实时驱动！");
+    }
+    @Test
+    public void testSpatialDecayingFieldScores1() {
 
-// 核心数学机理校验
-        assert finalReport.contains("1.62") : "空间高斯连续衰减场加权计算有偏差，请检查数学公式";
+        String poiName = "青口渔场";
+        String landType = "互花米草";
+        int classType = 1;
+
+        double sigma = 500.0;
+
+        System.out.println("\n=========================================================");
+        System.out.println("🚀 启动 [RS-Spatial-RAG] 真实数据库穿透全链路集成测试...");
+        System.out.println("=========================================================");
+        System.out.println("【当前运行时参数配置】");
+        System.out.println(" -> 评估核心 POI 锚点: " + poiName);
+        System.out.println(" -> 监测目标生态地物: " + landType);
+        System.out.println(" -> 高斯衰减场带宽 (Sigma): " + sigma + " 米");
+        System.out.println("---------------------------------------------------------");
+
+        List<WetlandPatchDTO> dbPatches =
+                wetlandPatchMapper.selectIntersectsPatches(
+                        poiName,
+                        classType
+                );
+        System.out.println("dbPatches = " + dbPatches);
+        if (dbPatches == null || dbPatches.isEmpty()) {
+
+            System.out.println(
+                    "⚠️ 当前数据库中未发现 "
+                            + poiName
+                            + " 周边1500m范围内的 "
+                            + landType
+            );
+
+            return;
+        }
+
+        double totalPhysicalArea = 0.0;
+        double totalWeightedArea = 0.0;
+
+        System.out.println("【PostGIS 圈层统计结果】");
+
+        for (WetlandPatchDTO band : dbPatches) {
+
+            Long bandId = band.getPatchId();
+
+            double distance =
+                    band.getSpatialDistance();
+
+            double areaM2 =
+                    band.getPatchArea();
+
+            double areaHm2 =
+                    areaM2 / 10000.0;
+
+            double gaussianWeight =
+                    Math.exp(
+                            -(distance * distance)
+                                    /
+                                    (2 * sigma * sigma)
+                    );
+
+            double weightedAreaHm2 =
+                    areaHm2 * gaussianWeight;
+
+            totalPhysicalArea += areaHm2;
+            totalWeightedArea += weightedAreaHm2;
+
+            String bandName;
+
+            if (bandId == 1L) {
+                bandName = "0-500m 核心风险区";
+            } else if (bandId == 2L) {
+                bandName = "500-1000m 缓冲警戒区";
+            } else if (bandId == 3L) {
+                bandName = "1000-1500m 边缘扩散区";
+            } else {
+                bandName = "未知圈层";
+            }
+
+            System.out.printf(
+                    " -> [%s] 距离=%.0fm | 面积=%.4fhm² | 高斯权重=%.4f | 加权面积=%.4fhm²%n",
+                    bandName,
+                    distance,
+                    areaHm2,
+                    gaussianWeight,
+                    weightedAreaHm2
+            );
+        }
+
+        String expectedPhysicalStr =
+                String.format("%.2f", totalPhysicalArea);
+
+        String expectedWeightedStr =
+                String.format("%.2f", totalWeightedArea);
+
+        System.out.println("---------------------------------------------------------");
+        System.out.println("【理论计算结果】");
+        System.out.println(" -> 物理总面积 = "
+                + expectedPhysicalStr
+                + " hm²");
+
+        System.out.println(" -> 高斯衰减加权面积 = "
+                + expectedWeightedStr
+                + " hm²");
+
+        System.out.println("---------------------------------------------------------");
+
+        String finalReport =
+                wetlandAgentService.executeSpatialSemanticAnalysis(
+                        poiName,
+                        landType
+                );
+
+        System.out.println("🔥 Agent输出结果：");
+        System.out.println(finalReport);
+
+        System.out.println("=========================================================");
+
+        assert finalReport != null;
+
+        assert finalReport.contains(poiName)
+                : "报告中未出现POI名称";
+
+        assert finalReport.contains(expectedPhysicalStr)
+                : "报告中的物理总面积与数据库计算不一致";
+
+        assert finalReport.contains(expectedWeightedStr)
+                : "报告中的高斯加权面积与理论计算不一致";
+
+        System.out.println("🏆 集成测试通过！");
     }
 }

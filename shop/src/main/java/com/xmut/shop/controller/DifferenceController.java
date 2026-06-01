@@ -1,7 +1,10 @@
 package com.xmut.shop.controller;
 
+import com.xmut.shop.DTO.WetlandPatchDTO;
+import com.xmut.shop.mapper.WetlandPatchMapper;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.gce.geotiff.GeoTiffReader;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.web.bind.annotation.*;
 
 import java.awt.image.Raster;
@@ -9,6 +12,7 @@ import java.io.File;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -95,5 +99,32 @@ public class DifferenceController {
         String yearSuffix = parts[0].substring(parts[0].length() - 2);
         int month = Integer.parseInt(parts[1]); // 自动去掉 03 中的 0
         return Paths.get(BASE_PATH, String.format("%s_%d_%s.tif", yearSuffix, month, band)).toString();
+    }
+    @MockBean
+    private WetlandPatchMapper wetlandPatchMapper;
+    @PostMapping("/testMapeer")
+    public  Boolean testMapeer (){
+        String poiName = "青口渔场";
+        String landType = "互花米草";
+        int classType = 1;
+
+        double sigma = 500.0;
+
+        System.out.println("\n=========================================================");
+        System.out.println("🚀 启动 [RS-Spatial-RAG] 真实数据库穿透全链路集成测试...");
+        System.out.println("=========================================================");
+        System.out.println("【当前运行时参数配置】");
+        System.out.println(" -> 评估核心 POI 锚点: " + poiName);
+        System.out.println(" -> 监测目标生态地物: " + landType);
+        System.out.println(" -> 高斯衰减场带宽 (Sigma): " + sigma + " 米");
+        System.out.println("---------------------------------------------------------");
+
+        List<WetlandPatchDTO> dbPatches =
+                wetlandPatchMapper.selectIntersectsPatches(
+                        poiName,
+                        classType
+                );
+        System.out.println("dbPatches = " + dbPatches);
+        return true;
     }
 }

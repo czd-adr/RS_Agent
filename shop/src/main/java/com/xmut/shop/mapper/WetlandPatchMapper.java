@@ -12,19 +12,66 @@ import java.util.List;
 public interface WetlandPatchMapper extends BaseMapper<WetlandPatchDTO> {
 
     @Select("""
-        WITH poi_geom AS (
-            SELECT p.geom FROM "spatial_poi" p WHERE p.poi_name = #{poiName} LIMIT 1
-        )
-        SELECT 
-            f.id AS patchId,
-            f.area_m2 AS patchArea,
-            -- 实时动态计算每一个图斑到目标POI的空间物理距离
-            ST_Distance(f.geom, (SELECT geom FROM poi_geom)) AS spatialDistance
+    WITH poi_geom AS (
+        -- 获取目标POI并转换为米制投影坐标系
+        SELECT ST_Transform(p.geom, 4527) AS geom_m
+        FROM "spatial_poi" p
+        WHERE p.poi_name = #{poiName}
+        LIMIT 1
+    ),
+
+    calculated_patches AS (
+        -- 获取1500m范围内目标地类图斑
+        SELECT
+            f.id,
+            f.area_m2,
+            ST_Distance(
+                ST_Transform(f.geom, 4527),
+                (SELECT geom_m FROM poi_geom)
+            ) AS dist_m
         FROM "RF_area_export" f
         WHERE f."class" = #{type}
-          -- 采用硬相交(ST_Intersects)或软范围(ST_DWithin)作为第一道空间粗筛门槛
-          -- 这里以ST_DWithin为例，允许搜寻POI周围2000米内的潜在扩散图斑
-          AND ST_DWithin(f.geom, (SELECT geom FROM poi_geom), 2000.0)
-    """)
-    List<WetlandPatchDTO> selectIntersectsPatches(@Param("poiName") String poiName, @Param("type") int type);
+          AND ST_DWithin(
+                ST_Transform(f.geom, 4527),
+                (SELECT geom_m FROM poi_geom),
+                1500.0
+          )
+    ),
+
+    bucketed_patches AS (
+        -- 距离环带划分
+        SELECT
+            id,
+            area_m2,
+            dist_m,
+
+            CASE
+                WHEN dist_m >= 0 AND dist_m < 500 THEN 500.0
+                WHEN dist_m >= 500 AND dist_m < 1000 THEN 1000.0
+                WHEN dist_m >= 1000 AND dist_m <= 1500 THEN 1500.0
+                ELSE 9999.0
+            END AS band_distance,
+
+            CASE
+                WHEN dist_m >= 0 AND dist_m < 500 THEN 1
+                WHEN dist_m >= 500 AND dist_m < 1000 THEN 2
+                WHEN dist_m >= 1000 AND dist_m <= 1500 THEN 3
+                ELSE 4
+            END AS band_order
+
+        FROM calculated_patches
+    )
+
+    SELECT
+        band_order::bigint AS patchId,
+        SUM(area_m2)::double precision AS patchArea,
+        band_distance::double precision AS spatialDistance
+    FROM bucketed_patches
+    GROUP BY band_order, band_distance
+    ORDER BY band_order
+""")
+    List<WetlandPatchDTO> selectIntersectsPatches(
+            @Param("poiName") String poiName,
+            @Param("type") int type
+    );
 }
