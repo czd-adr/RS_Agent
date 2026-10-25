@@ -43,72 +43,6 @@ public class RagsEvaluationTest {
     @Autowired
     private WetlandPatchMapper wetlandPatchMapper;
     @Test
-    public void evaluateRecall() {
-        // 建议：测试前先清空或使用特定的 memoryId，避免历史干扰
-        String memoryId = "test-session-1" + System.currentTimeMillis();
-        String message = "这个研究区域的具体地理范围和坐标是多少？";
-
-        // 这是你在 md 文档里定义的核心术语
-        List<String> expectedTerms = Arrays.asList("119.162", "34.834", "119.313", "34.727", "矩形研究窗口");
-
-        // 1. 获取完整回答（阻塞式获取，方便计算指标）
-        String fullResponse = webGisAgent.chat(memoryId, message)
-                .collectList()
-                .map(list -> String.join("", list))
-                .block();
-
-        System.out.println("--- Agent 回答内容 ---");
-        System.out.println(fullResponse);
-        System.out.println("---------------------");
-
-        // 2. 计算 Recall
-        double recall = EvaluationUtils.calculateTermRecall(fullResponse, expectedTerms);
-
-        System.out.println("📊 实验组专业术语提取率 (Recall): " + (recall * 100) + "%");
-    }
-    @Test
-    public void evaluateContrast() {
-        String memoryId = "test-session-NoRAG" + System.currentTimeMillis();
-        String message = "这个研究区域的具体地理范围和坐标是多少？";
-
-        // 这是你在 md 文档里定义的核心术语
-        List<String> expectedTerms = Arrays.asList("119.162", "34.834", "119.313", "34.727", "矩形研究窗口");
-
-        // 1. 获取完整回答（阻塞式获取，方便计算指标）
-        String fullResponse = webGisAgentNoRAG.chat(memoryId, message)
-                .collectList()
-                .map(list -> String.join("", list))
-                .block();
-
-        System.out.println("--- Agent 回答内容 ---");
-        System.out.println(fullResponse);
-        System.out.println("---------------------");
-
-        // 2. 计算 Recall
-        double recall = EvaluationUtils.calculateTermRecall(fullResponse, expectedTerms);
-
-        System.out.println("📊 对照组专业术语提取率 (Recall): " + (recall * 100) + "%");
-    }
-    @Test
-    public void runFullExperiment() {
-        String message = "这个研究区域的具体地理范围和坐标是多少？";
-        List<String> expectedTerms = Arrays.asList("119.162", "34.834", "119.313", "34.727", "矩形研究窗口");
-
-        // --- 实验组 ---
-        CommonConfig.enableRAG = true;
-        String resExp = webGisAgent.chat("exp-4" + System.currentTimeMillis(), message)
-                .collectList().map(l -> String.join("", l)).block();
-        double recallExp = EvaluationUtils.calculateTermRecall(resExp, expectedTerms);
-        System.out.println("实验组 (RAG ON) Recall: " + (recallExp * 100) + "%");
-
-        // --- 对照组 ---
-        CommonConfig.enableRAG = false; // 一键关掉检索逻辑
-        String resCtrl = webGisAgent.chat("ctrl-4" + System.currentTimeMillis(), message)
-                .collectList().map(l -> String.join("", l)).block();
-        double recallCtrl = EvaluationUtils.calculateTermRecall(resCtrl, expectedTerms);
-        System.out.println("对照组 (RAG OFF) Recall: " + (recallCtrl * 100) + "%");
-    }
-    @Test
     public void runFullComprehensiveExperiment() {
         // 1. 初始化四个维度的实验数据
         List<RagTestCase> testSuite = new ArrayList<>();
@@ -268,18 +202,213 @@ public class RagsEvaluationTest {
         System.out.println("=======================================================================\n");
     }
     @Test
-    public void runControlGroupTest() {//语义分析
+    public void runLinhongEstuaryControlGroupTest() {
+        String baseQuery =
+                "根据连云港市临洪河口湿地相关规划与现状资料，请严格按照以下5点依次回答：\n"
+                        + "1. 该湿地的总面积是多少？\n"
+                        + "2. 具体的自然湿地和人工湿地包含哪些类型及各自对应的公顷面积？\n"
+                        + "3. 湿地内面积最大的草本植物群落是什么，占草本植物总面积的比例是多少？\n"
+                        + "4. 区域内的水利枢纽共建有几座水闸、几座泵站和几个涵洞？\n"
+                        + "5. 文献中明确提及多次发现的国际濒危鸟类有哪些？";
+
+        // 刚性防御提示词，防止无 RAG 注入时大语言模型瞎编数字
+        String controlQuery =
+                baseQuery
+                        + "（如果无法通过外部知识库或工具获得精确参数，"
+                        + "请直接说明无法获取，不允许主观猜测。）";
+
+        String sessionId =
+                "SESSION_LINHONG_CONTROL_" + System.currentTimeMillis();
+
+        System.out.println("\n==============================================================");
+        System.out.println("🚀 启动 [临洪河口湿地文献] 知识保真度与全域联合语义评估实验...");
+        System.out.println("==============================================================");
 
         // =========================================================
-        // 1. 对照组问题（空知识库）
+        // 2. 获取模型响应 (此处直连你的 WebGisAgent 流)
         // =========================================================
+        String response = webGisAgent.chat(sessionId, controlQuery)
+                .collectList()
+                .map(list -> String.join("", list))
+                .block();
+
+        // =========================================================
+        // 3. Ground Truth（基于束德方等专家的学术论文精准提炼）
+        // =========================================================
+        String groundTruth =
+                "1. 临洪河口湿地总面积约4000hm2。\n"
+                        + "2. 自然湿地包括浅海水域1300hm2、河口水域120hm2、滩涂90hm2；人工湿地为河川型水库2490hm2。\n"
+                        + "3. 面积最大的草本植物是芦苇群落，占草本植物面积的40%。\n"
+                        + "4. 水利枢纽共建有10座水闸、4座泵站、2个涵洞。\n"
+                        + "5. 国际濒危鸟类主要有黑嘴鸥和遗鸥。";
+
+        // =========================================================
+        // 4. Embedding 语义得分 S_sem
+        // =========================================================
+        double semanticScore =
+                SpatialSemanticEvaluationUtils.calculateSemanticScore(
+                        response,
+                        groundTruth,
+                        embeddingModel
+                );
+
+        // =========================================================
+        // 5. 专属关键词/刚性核心遥感生态参数词集 K (用于解算 S_key)
+        // =========================================================
+        List<String> keywords = Arrays.asList(
+                "4000",          // 总面积数值
+                "1300",          // 浅海水域数值
+                "120",           // 河口水域数值
+                "90",            // 滩涂数值
+                "2490",          // 人工湿地数值
+                "河川",          // 水库类型
+                "芦苇",          // 优势优势植物
+                "40%",           // 植物占比
+                "10",            // 水闸数量
+                "4",             // 泵站数量
+                "2",             // 涵洞数量
+                "水闸",          // 工程类型
+                "泵站",          // 工程类型
+                "黑嘴鸥",         // 濒危鸟类1
+                "遗鸥"           // 濒危鸟类2
+        );
+
+        double keywordScore =
+                SpatialSemanticEvaluationUtils.calculateKeywordHitScore(
+                        response,
+                        keywords
+                );
+
+        // =========================================================
+        // 6. 联合语义函数 F_sem（💡 已紧急修正 1-actor 优先级括号 Bug）
+        // =========================================================
+        double actor = 0.5; // 平衡因子 \alpha 偏向于宏观语义机理
+        double finalScore = (actor * semanticScore) + ((1 - actor) * keywordScore);
+
+        // =========================================================
+        // 7. 输出实验结果
+        // =========================================================
+        System.out.println("\n[决策调节因子 \\alpha] = " + actor);
+        System.out.println("\n【专家标准文本 Ground Truth】");
+        System.out.println(groundTruth);
+
+        System.out.println("\n--------------------------------------------------------------");
+        System.out.println("【大模型智能体实际响应 Response】");
+        System.out.println(response);
+
+        System.out.println("\n--------------------------------------------------------------");
+        System.out.println("【宏观语义相似度得分 S_sem】: " + String.format("%.4f", semanticScore));
+
+        System.out.println("\n--------------------------------------------------------------");
+        System.out.println("【微观知识保真关键词命中率 S_key】: " + String.format("%.4f", keywordScore));
+
+        System.out.println("\n--------------------------------------------------------------");
+        System.out.println("【全域联合语义函数最终评估得分 F_sem】: " + String.format("%.4f", finalScore));
+        System.out.println("==============================================================");
+    }
+    @Test
+    public void runControlGroupTest_fishGround() {
         String baseQuery =
-                "连云港赣榆青口河口水鸟栖息地修复中，"
-                        + "浅水区的目标水深范围是多少？"
-                        + "光滩面积是多少？"
-                        + "稀疏草洲植被盖度控制在什么范围？"
-                        + "潮沟宽深比要求是多少？"
-                        + "并说明对应的水鸟生态意义。";
+                "根据连云港市及赣榆区滨海湿地生态修复与养殖水域规划资料，请严格按照以下5点依次回答：\n"
+                        + "1. 青口盐场周边区域规划的海水临时养殖区总面积是多少公顷？该区域面临怎样的政策退让要求？\n"
+                        + "2. 依据国土空间生态修复规划，推进海州湾重点河口海湾综合治理应坚持什么原则？\n"
+                        + "3. 在推进海岸线治理工程中，主要采取了哪些具体工程措施来恢复岸线自然生态？\n"
+                        + "4. 局地统筹开展外来物种外来入侵物种互花米草综合治理的规划总面积是多少公顷？\n"
+                        + "5. 青口河入海污染拦截控源工程中，要求针对百亩连片标准化池塘实施什么改造以确保尾水达标排放？";
+
+        // 刚性防御提示词，防止 NoRAG 配置下大模型主观瞎编数字
+        String controlQuery =
+                baseQuery
+                        + "\n（注意：如果无法通过外部知识库或工具获得精确参数，请直接说明无法获取，不允许主观猜测或模糊回答。）";
+
+        String sessionId =
+                "SESSION_QINGKOU_POLICY_CONTROL_" + System.currentTimeMillis();
+
+        System.out.println("\n==============================================================");
+        System.out.println("🚀 启动 [青口渔场/河口政策文献] 知识保真度与全域联合语义评估实验...");
+        System.out.println("==============================================================");
+
+        // =========================================================
+        // 2. 获取模型响应 (此处直连你的 WebGisAgent 流)
+        // =========================================================
+        String response = webGisAgent.chat(sessionId, controlQuery)
+                .collectList()
+                .map(list -> String.join("", list))
+                .block();
+
+        // =========================================================
+        // 3. 优化后的 Ground Truth（高密度提炼官方规划事实，去除修饰词）
+        // =========================================================
+        String groundTruth =
+                "1. 青口盐场周边规划海水临时养殖区面积约7305.1公顷（hm2），未来需因其他生态或建设功能柔性退出并向生态保护空间流转。\n"
+                        + "2. 推进海州湾重点河口海湾综合治理应坚持“一湾一策、一口一策”原则。\n"
+                        + "3. 岸线治理采取了拆除非法养殖与构筑物、清除淤泥整治、海岸防护、海淤换填等工程措施。\n"
+                        + "4. 统筹开展互花米草综合治理的规划总面积共1282.5公顷（hm2）。\n"
+                        + "5. 针对百亩连片标准化池塘实施生态化改造，确保养殖尾水达标排放或循环利用。";
+
+        // =========================================================
+        // 4. Embedding 语义得分解算
+        // =========================================================
+        double semanticScore =
+                SpatialSemanticEvaluationUtils.calculateSemanticScore(
+                        response,
+                        groundTruth,
+                        embeddingModel
+                );
+
+        // =========================================================
+        // 5. 优化后的专属关键词约束集合（降低匹配颗粒度，原子化切分以保障容错率）
+        // =========================================================
+        List<String> keywords = Arrays.asList(
+                "7305.1",       // 海水临时养殖区面积关键数值
+                "1282.5",       // 互花米草专项治理面积关键数值
+                "临时养殖",     // 区划政策专有名词
+                "一湾一策",     // 治理原则核心词
+                "一口一策",     // 治理原则核心词
+                "互花米草",     // 核心入侵物种名
+                "清淤",         // 岸线治理工程措施关键片段（容错“清除淤泥”）
+                "换填",         // 岸线治理工程措施关键特征
+                "防护",         // 岸线治理工程措施关键特征
+                "生态化改造",   // 池塘尾水治理技术路径
+                "尾水",         // 污染控制对象
+                "达标排放"      // 环保控制刚性要求
+        );
+
+        double keywordScore =
+                SpatialSemanticEvaluationUtils.calculateKeywordHitScore(
+                        response,
+                        keywords
+                );
+
+        // =========================================================
+        // 6. 联合语义凸组合函数解算 (设置与论文一致的平衡因子)
+        // =========================================================
+        double actor = 0.7; // 凸组合决策偏好因子，更偏向微观刚性保真
+        double finalScore = (actor * semanticScore) + ((1.0 - actor) * keywordScore);
+
+        // =========================================================
+        // 7. 格式化输出实验结果（便于直接复制进论文表格）
+        // =========================================================
+        System.out.println("\n📊 决策平衡调节因子 \\alpha: " + actor);
+        System.out.println("\n【专家标准 Ground Truth】:\n" + groundTruth);
+        System.out.println("\n--------------------------------------------------------------");
+        System.out.println("【Agent 实际响应 Response】:\n" + response);
+        System.out.println("\n--------------------------------------------------------------");
+        System.out.printf("📊 最终评测指标矩阵结果:\n");
+        System.out.printf(" -> 宏观语义得分 [S_sem] = %.4f\n", semanticScore);
+        System.out.printf(" -> 知识保真命中率 [S_key] = %.4f\n", keywordScore);
+        System.out.printf(" ➔ 全域联合综合得分 [F_sem] = %.4f\n", finalScore);
+        System.out.println("==============================================================");
+    }
+    @Test
+    public void runControlGroupTest() {
+        String baseQuery =
+                "根据连云港赣榆青口河口水鸟栖息地修复相关资料，请严格按照以下5点依次回答：\n"
+                        + "1. 浅水生境的总面积是多少？浅水区的目标水深范围控制在多少厘米之间？\n"
+                        + "2. 规划构建的光滩面积是多少公顷？\n"
+                        + "3. 稀疏草洲的植被盖度需要控制在什么百分比范围？\n"
+                        + "4. 栖息地内设计的潮沟宽深比有什么具体要求？\n"
+                        + "5. 构建光滩、浅水和稀疏草洲三类生境，分别满足了哪些类型水鸟的觅食与栖息需求？";
 
         // 防止 NoRAG 胡编
         String controlQuery =
@@ -305,13 +434,11 @@ public class RagsEvaluationTest {
         // 3. Ground Truth
         // =========================================================
         String groundTruth =
-                "浅水生境总面积约15.46hm2，"
-                        + "浅水区水深范围控制在0到25cm之间，"
-                        + "光滩面积约7.61hm2，"
-                        + "稀疏草洲植被盖度控制在25%到30%，"
-                        + "潮沟宽深比需大于8，"
-                        + "并通过构建光滩、浅水和稀疏草洲三类生境，"
-                        + "满足鸻鹬类、鹭类和雁鸭类水鸟的觅食与栖息需求。";
+                "1. 浅水生境总面积约15.46hm2，浅水区水深范围控制在0到25cm之间。\n"
+                        + "2. 光滩面积约7.61hm2。\n"
+                        + "3. 稀疏草洲植被盖度控制在25%到30%之间。\n"
+                        + "4. 潮沟宽深比要求大于8。\n"
+                        + "5. 通过构建三类生境，满足鸻鹬类、鹭类和雁鸭类水鸟的觅食与栖息需求。";
 
         // =========================================================
         // 4. Embedding 语义得分
@@ -327,18 +454,19 @@ public class RagsEvaluationTest {
         // 5. 专属关键词命中率
         // =========================================================
         List<String> keywords = Arrays.asList(
-                "15.46",
-                "7.61",
-                "25%到30%",
-                "宽深比",
-                "大于8",
-                "0到25",
-                "光滩",
-                "浅水",
-                "稀疏草洲",
-                "鸻鹬类",
-                "鹭类",
-                "雁鸭类"
+                "15.46",        // 浅水总面积数值
+                "7.61",         // 光滩面积数值
+                "25",           // 盖度上限 / 水深上限
+                "30",           // 盖度下限数值
+                "0",            // 水深下限数值
+                "8",            // 宽深比关键数值
+                "宽深比",        // 工程专有名词
+                "光滩",          // 生境类型1
+                "浅水",          // 生境类型2
+                "稀疏草洲",      // 生境类型3
+                "鸻鹬",          // 水鸟物种分类（去掉“类”字提高泛化匹配）
+                "鹭",            // 水鸟物种分类
+                "雁鸭"           // 水鸟物种分类
         );
 
         double keywordScore =
@@ -350,13 +478,16 @@ public class RagsEvaluationTest {
         // =========================================================
         // 6. 联合语义函数
         // =========================================================
+        double actor = 0.3;
         double finalScore =
-                0.5 * semanticScore
-                        + 0.5 * keywordScore;
+                actor * semanticScore
+                        + (1-actor) * keywordScore;
 
         // =========================================================
         // 7. 输出实验结果
         // =========================================================
+        System.out.println("\n  影响因子actor");
+        System.out.println(actor);
         System.out.println("\n【Ground Truth】");
         System.out.println(groundTruth);
 

@@ -43,7 +43,7 @@ public class CommonConfig {
 
         // 加载 content 目录
         List<Document> documents =
-                ClassPathDocumentLoader.loadDocuments("content2");
+                ClassPathDocumentLoader.loadDocuments("content");
 
         // 内存向量库
         InMemoryEmbeddingStore<TextSegment> store =

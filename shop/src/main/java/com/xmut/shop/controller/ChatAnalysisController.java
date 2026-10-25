@@ -7,6 +7,7 @@ import com.xmut.shop.DTO.NDVIChartDTO;
 import com.xmut.shop.Utils.EvaluationUtils;
 import com.xmut.shop.agent.WebGisAgent;
 import com.xmut.shop.agent.WebGisChartAgent;
+import com.xmut.shop.agent.WebGisEnglishAgent;
 import com.xmut.shop.repository.RedisChatMemoryStore;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
@@ -32,7 +33,15 @@ public class ChatAnalysisController {
     @Autowired
     private WebGisChartAgent webGisChartAgent;
     @Autowired
+    private WebGisEnglishAgent webGisEnglishAgent;
+    @Autowired
     private SamplePointsController samplePointsController;
+
+    @RequestMapping(value = "/Echat",produces = "text/html;charset=utf-8")
+    public Flux<String> Echat(String memoryId,String message) {
+        Flux<String> result = webGisEnglishAgent.chat(memoryId,message);
+        return result;
+    }
 
     @RequestMapping(value = "/chat",produces = "text/html;charset=utf-8")
     public Flux<String> chat(String memoryId,String message) {
@@ -88,6 +97,16 @@ public class ChatAnalysisController {
     public ResponseEntity<String> deleteChatSession(@PathVariable String memoryId) {
         redisChatMemoryStore.deleteSession(memoryId);
         return ResponseEntity.ok("会话已删除");
+    }
+
+    // 批量删除会话，请求体示例：["memoryId1", "memoryId2", ...]
+    @DeleteMapping("/sessions")
+    public ResponseEntity<String> deleteChatSessions(@RequestBody List<String> memoryIds) {
+        if (memoryIds == null || memoryIds.isEmpty()) {
+            return ResponseEntity.badRequest().body("请选择要删除的会话");
+        }
+        memoryIds.forEach(redisChatMemoryStore::deleteSession);
+        return ResponseEntity.ok("已批量删除 " + memoryIds.size() + " 个会话");
     }
 
     @GetMapping(value = "/chatChart", produces = MediaType.APPLICATION_JSON_VALUE)
