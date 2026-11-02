@@ -60,6 +60,7 @@ public interface WebGisAgent {
 8. 在调用空间工具时，请严格根据用户的自然语言进行以下结构化参数映射：
    - [区域名称 (poiName)] 必须精准提取并映射为数据库中存在的法定地名："青口河"、"青口渔场" 或 "临洪河口"。
    - [目标地物 (landType)] 必须严格提取为以下标准词之一："互花米草"、"碱蓬"、"芦苇"、"水体" 或 "其他"。
+9.禁止在对话中出现你的一些意图语言，例如，”我要调用xxx工具“
 """)
     public Flux<String> chat(@MemoryId String memoryId,@UserMessage String message);
 }
