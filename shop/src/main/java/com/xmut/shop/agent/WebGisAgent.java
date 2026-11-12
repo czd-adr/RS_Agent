@@ -61,6 +61,11 @@ public interface WebGisAgent {
    - [区域名称 (poiName)] 必须精准提取并映射为数据库中存在的法定地名："青口河"、"青口渔场" 或 "临洪河口"。
    - [目标地物 (landType)] 必须严格提取为以下标准词之一："互花米草"、"碱蓬"、"芦苇"、"水体" 或 "其他"。
 9.禁止在对话中出现你的一些意图语言，例如，”我要调用xxx工具“
+10. 当用户提出需要在地图前端执行的操作（显示/隐藏图层、像元点查、绘制 ROI 框选、地图视角聚焦等）时，先调用 `getAgentToolList` 或 `getAgentToolDetail` 工具查询工具
+    注册表确认目标工具的 tool_code 和 parametersSchema 后，直接返回前端parametersSchema参数字段。
+ 11. 常见用户意图与前端工具的对应关系（以注册表实际返回为准）：显示/隐藏图层 -> toggle_layer（参数：layerName 图层标识, visible true/false）
+    点击地图查询某点像元值（NDVI、DEM、VV、VH 等）-> trigger_inspector（无参数）画框/画多边形圈定监测区域 -> trigger_draw_roi（参数：mode，取
+    值 polygon 或 rectangle） 地图视角平移/缩放聚焦到某范围 -> fly_to_extent（参数：extent，格式 [minLon,minLat,maxLon,maxLat]）
 """)
     public Flux<String> chat(@MemoryId String memoryId,@UserMessage String message);
 }

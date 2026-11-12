@@ -8,6 +8,7 @@ import com.xmut.shop.Utils.EvaluationUtils;
 import com.xmut.shop.agent.WebGisAgent;
 import com.xmut.shop.agent.WebGisChartAgent;
 import com.xmut.shop.agent.WebGisEnglishAgent;
+import com.xmut.shop.repository.ActiveLayerStore;
 import com.xmut.shop.repository.RedisChatMemoryStore;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
@@ -28,6 +29,8 @@ public class ChatAnalysisController {
 
     @Autowired
     private RedisChatMemoryStore redisChatMemoryStore;
+    @Autowired
+    private ActiveLayerStore activeLayerStore;
     @Autowired
     private WebGisAgent webGisAgent; // 注入你定义的 AiService 接口
     @Autowired
@@ -96,6 +99,8 @@ public class ChatAnalysisController {
     @DeleteMapping("/session/{memoryId}")
     public ResponseEntity<String> deleteChatSession(@PathVariable String memoryId) {
         redisChatMemoryStore.deleteSession(memoryId);
+        // 同步清理该会话的活动图层数据
+        activeLayerStore.clear(memoryId);
         return ResponseEntity.ok("会话已删除");
     }
 
@@ -105,7 +110,10 @@ public class ChatAnalysisController {
         if (memoryIds == null || memoryIds.isEmpty()) {
             return ResponseEntity.badRequest().body("请选择要删除的会话");
         }
-        memoryIds.forEach(redisChatMemoryStore::deleteSession);
+        memoryIds.forEach(id -> {
+            redisChatMemoryStore.deleteSession(id);
+            activeLayerStore.clear(id);
+        });
         return ResponseEntity.ok("已批量删除 " + memoryIds.size() + " 个会话");
     }
 
