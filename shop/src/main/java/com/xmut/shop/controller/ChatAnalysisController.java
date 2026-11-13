@@ -10,6 +10,7 @@ import com.xmut.shop.agent.WebGisChartAgent;
 import com.xmut.shop.agent.WebGisEnglishAgent;
 import com.xmut.shop.repository.ActiveLayerStore;
 import com.xmut.shop.repository.RedisChatMemoryStore;
+import com.xmut.shop.service.AgentOrchestrationService;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -32,6 +33,8 @@ public class ChatAnalysisController {
     @Autowired
     private ActiveLayerStore activeLayerStore;
     @Autowired
+    private AgentOrchestrationService agentOrchestrationService;
+    @Autowired
     private WebGisAgent webGisAgent; // 注入你定义的 AiService 接口
     @Autowired
     private WebGisChartAgent webGisChartAgent;
@@ -52,6 +55,15 @@ public class ChatAnalysisController {
         return result;
     }//   用户id和会话id区分上下文方案：发起chat时，通过store获取用户id，拼接时间挫Date生成会话id，保存在数据库chat_message表中，表字段执
     //需要有conversation_id,user_id,id,List会话列表时，通过user_id关联查询message表，
+
+    /**
+     * 中枢编排入口（新增，不影响原 /chat）
+     * 例：GET /WebGISAgent/orchestrate?memoryId=xx&message=帮我打开628yangshi图层
+     */
+    @RequestMapping(value = "/orchestrate",produces = "text/html;charset=utf-8")
+    public Flux<String> orchestrate(String memoryId,String message) {
+        return agentOrchestrationService.orchestrate(memoryId, message);
+    }
 
     @GetMapping("/sessions")
     public List<Map<String, String>> getChatSessions() {
