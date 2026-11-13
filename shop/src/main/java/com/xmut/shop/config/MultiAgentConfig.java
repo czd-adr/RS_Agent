@@ -3,6 +3,7 @@ package com.xmut.shop.config;
 import com.xmut.shop.agent.GisInteractionAgent;
 import com.xmut.shop.agent.TemporalEvolutionAgent;
 import com.xmut.shop.agent.WetlandSpatialAgent;
+import com.xmut.shop.controller.DifferenceController;
 import com.xmut.shop.controller.RfAreaController;
 import com.xmut.shop.controller.SamplePointsController;
 import com.xmut.shop.controller.SpatialController;
@@ -35,16 +36,17 @@ public class MultiAgentConfig {
     }
 
     /**
-     * 时空演变分析智能体：只暴露逐月 NDVI 工具
+     * 时空演变分析智能体：只暴露逐月 NDVI 工具和双时相差异工具
      */
     @Bean
     public TemporalEvolutionAgent temporalEvolutionAgent(OpenAiChatModel chatModel,
                                                          ChatMemoryProvider chatMemoryProvider,
-                                                         SamplePointsController samplePointsController) {
+                                                         SamplePointsController samplePointsController,
+                                                         DifferenceController differenceController) {
         return AiServices.builder(TemporalEvolutionAgent.class)
                 .chatModel(chatModel)
                 .chatMemoryProvider(chatMemoryProvider)
-                .tools(samplePointsController)
+                .tools(samplePointsController, differenceController)
                 .build();
     }
 

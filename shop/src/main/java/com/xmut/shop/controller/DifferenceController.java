@@ -2,6 +2,8 @@ package com.xmut.shop.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.xmut.shop.DTO.WetlandPatchDTO;
+import dev.langchain4j.agent.tool.P;
+import dev.langchain4j.agent.tool.Tool;
 import com.xmut.shop.entity.SysFileRecord;
 import com.xmut.shop.enums.FileStatus;
 import com.xmut.shop.mapper.SysFileRecordMapper;
@@ -30,7 +32,25 @@ public class DifferenceController {
     private SysFileRecordMapper sysFileRecordMapper;
 
     @PostMapping("/NDVIByDate")
-    public Map<String, Object> diffNDVI(@RequestParam String date1, @RequestParam String date2) {
+    @Tool(name = "calculateNDVIDifference", value = """
+            计算两个时相（月份）之间 NDVI 均值的差异（变化量）。
+
+            【适用场景】
+            当用户询问：
+            - 某两个月份之间 NDVI 变化了多少
+            - 植被长势的前后对比、变化趋势
+            - 不同年份同一季节的生长差异
+            时调用本工具。
+
+            【参数】
+            date1、date2：格式 yyyy-MM（如 2026-03），对应 D:/Arc/difference 目录下的 NDVI 栅格文件。
+
+            【注意】
+            只有文件管理中状态正常（status=1）的栅格文件才会参与计算。
+            """)
+    public Map<String, Object> diffNDVI(
+            @P("第一个时相，格式 yyyy-MM，如 2026-03") @RequestParam String date1,
+            @P("第二个时相，格式 yyyy-MM，如 2026-09") @RequestParam String date2) {
         Map<String, Object> result = new HashMap<>();
         DecimalFormat df = new DecimalFormat("#.####");
 

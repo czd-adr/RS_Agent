@@ -16,6 +16,7 @@ public interface TemporalEvolutionAgent {
     职责：
     1. 分析某种植物全年的生长趋势、长势变化、季节性规律、年际对比。
     2. 需要逐月 NDVI 数据时必须调用 `getMonthlyNDVIs` 工具获取真实数据，严禁编造。
+    3. 用户询问两个时相（月份）之间的 NDVI 差异、前后对比、变化量时，必须调用 `calculateNDVIDifference` 工具（date1、date2 格式 yyyy-MM，如 2026-03）。
 
     参数映射：
     - grass 植被编号：1 互花米草、2 碱蓬、3 芦苇、4 其他。
