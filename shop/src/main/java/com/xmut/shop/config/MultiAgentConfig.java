@@ -1,6 +1,8 @@
 package com.xmut.shop.config;
 
 import com.xmut.shop.agent.GisInteractionAgent;
+import com.xmut.shop.agent.ReportParamExtractor;
+import com.xmut.shop.agent.ReportWriterAgent;
 import com.xmut.shop.agent.TemporalEvolutionAgent;
 import com.xmut.shop.agent.WetlandSpatialAgent;
 import com.xmut.shop.controller.DifferenceController;
@@ -47,6 +49,26 @@ public class MultiAgentConfig {
                 .chatModel(chatModel)
                 .chatMemoryProvider(chatMemoryProvider)
                 .tools(samplePointsController, differenceController)
+                .build();
+    }
+
+    /**
+     * 报告参数提取器（结构化输出，无工具）
+     */
+    @Bean
+    public ReportParamExtractor reportParamExtractor(OpenAiChatModel chatModel) {
+        return AiServices.builder(ReportParamExtractor.class)
+                .chatModel(chatModel)
+                .build();
+    }
+
+    /**
+     * 报告撰写智能体（无工具）
+     */
+    @Bean
+    public ReportWriterAgent reportWriterAgent(OpenAiChatModel chatModel) {
+        return AiServices.builder(ReportWriterAgent.class)
+                .chatModel(chatModel)
                 .build();
     }
 

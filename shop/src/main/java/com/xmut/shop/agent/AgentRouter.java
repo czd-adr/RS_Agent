@@ -1,6 +1,7 @@
 package com.xmut.shop.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.xmut.shop.DTO.ToolCommand;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -42,10 +43,16 @@ public class AgentRouter {
         this.objectMapper = objectMapper;
     }
 
-    @Tool("GIS 空间交互智能体：当用户提出需要在地图前端执行的操作（显示/隐藏图层、像元点查、绘制 ROI 框选、地图视角聚焦等）时调用。")
+    @Tool("GIS 空间交互智能体：当用户提出需要在地图前端执行的操作（显示/隐藏图层、像元点查、绘制 ROI 框选、地图视角聚焦等）时调用。返回 JSON 工具指令，需原样转发给前端。")
     public String delegateToGisInteraction(@P("用户的完整原始问题") String message) {
         remember("gis");
-        return gisInteractionAgent.chat(memoryId + ":gis", message);
+        // 子智能体返回结构化 POJO，序列化为 JSON 交给中枢原样转发
+        ToolCommand cmd = gisInteractionAgent.chat(memoryId + ":gis", message);
+        try {
+            return objectMapper.writeValueAsString(cmd);
+        } catch (Exception e) {
+            return "{\"toolCode\":\"\",\"parameters\":{}}";
+        }
     }
 
     @Tool("时空演变分析智能体：当用户询问植被 NDVI 长势、逐月趋势、季节性规律、生长变化、年际对比时调用。")
