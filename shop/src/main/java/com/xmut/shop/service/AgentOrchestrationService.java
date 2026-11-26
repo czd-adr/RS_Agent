@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xmut.shop.agent.AgentRouter;
 import com.xmut.shop.agent.GisInteractionAgent;
 import com.xmut.shop.agent.OrchestratorAgent;
+import com.xmut.shop.agent.RemoteSensingInterpretationAgent;
 import com.xmut.shop.agent.TemporalEvolutionAgent;
 import com.xmut.shop.agent.WebGisChartAgent;
 import com.xmut.shop.agent.WetlandSpatialAgent;
@@ -34,6 +35,8 @@ public class AgentOrchestrationService {
     @Autowired
     private GisInteractionAgent gisInteractionAgent;
     @Autowired
+    private RemoteSensingInterpretationAgent remoteSensingInterpretationAgent;
+    @Autowired
     private TemporalEvolutionAgent temporalEvolutionAgent;
     @Autowired
     private WetlandSpatialAgent wetlandSpatialAgent;
@@ -49,7 +52,7 @@ public class AgentOrchestrationService {
     public Flux<String> orchestrate(String memoryId, String message) {
         // 每个请求创建独立的路由器实例，携带会话上下文，避免并发串话
         AgentRouter router = new AgentRouter(memoryId,
-                gisInteractionAgent, temporalEvolutionAgent, wetlandSpatialAgent,
+                gisInteractionAgent, remoteSensingInterpretationAgent, temporalEvolutionAgent, wetlandSpatialAgent,
                 webGisChartAgent, redisTemplate, objectMapper);
 
         // 按会话构建中枢编排智能体（独立记忆命名空间）

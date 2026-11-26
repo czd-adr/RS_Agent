@@ -2,6 +2,7 @@ package com.xmut.shop.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xmut.shop.DTO.ToolCommand;
+import com.xmut.shop.enums.InterpretationLayerEnum;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -21,6 +22,7 @@ public class AgentRouter {
 
     private final String memoryId;
     private final GisInteractionAgent gisInteractionAgent;
+    private final RemoteSensingInterpretationAgent remoteSensingInterpretationAgent;
     private final TemporalEvolutionAgent temporalEvolutionAgent;
     private final WetlandSpatialAgent wetlandSpatialAgent;
     private final WebGisChartAgent webGisChartAgent;
@@ -29,6 +31,7 @@ public class AgentRouter {
 
     public AgentRouter(String memoryId,
                        GisInteractionAgent gisInteractionAgent,
+                       RemoteSensingInterpretationAgent remoteSensingInterpretationAgent,
                        TemporalEvolutionAgent temporalEvolutionAgent,
                        WetlandSpatialAgent wetlandSpatialAgent,
                        WebGisChartAgent webGisChartAgent,
@@ -36,6 +39,7 @@ public class AgentRouter {
                        ObjectMapper objectMapper) {
         this.memoryId = memoryId;
         this.gisInteractionAgent = gisInteractionAgent;
+        this.remoteSensingInterpretationAgent = remoteSensingInterpretationAgent;
         this.temporalEvolutionAgent = temporalEvolutionAgent;
         this.wetlandSpatialAgent = wetlandSpatialAgent;
         this.webGisChartAgent = webGisChartAgent;
@@ -48,6 +52,26 @@ public class AgentRouter {
         remember("gis");
         // 子智能体返回结构化 POJO，序列化为 JSON 交给中枢原样转发
         ToolCommand cmd = gisInteractionAgent.chat(memoryId + ":gis", message);
+        try {
+            return objectMapper.writeValueAsString(cmd);
+        } catch (Exception e) {
+            return "{\"toolCode\":\"\",\"parameters\":{}}";
+        }
+    }
+
+    @Tool("遥感解译智能体：当用户提出遥感解译需求（分类解译、查看解译结果、切换/叠加解译图层等）时调用。返回 JSON 工具指令，需原样转发给前端；转发后以'解译工作完成'的口吻补充说明，不要描述图层切换细节。")
+    public String delegateToRemoteSensingInterpretation(@P("用户的完整原始问题") String message) {
+        remember("rs_interpretation");
+        // 与 GIS 空间交互智能体同构：返回结构化 POJO
+        ToolCommand cmd = remoteSensingInterpretationAgent.chat(memoryId + ":rsInterpretation", message);
+        // 确定性映射：把算法关键字（如"随机森林"）转换为图层全称（test:RF_image），
+        // 图层全称不由大模型生成，避免拼写错误
+        if (cmd != null && "toggle_layer".equals(cmd.getToolCode()) && cmd.getParameters() != null) {
+            Object layer = cmd.getParameters().get("layerName");
+            if (layer instanceof String) {
+                cmd.getParameters().put("layerName", InterpretationLayerEnum.mapLayerName((String) layer));
+            }
+        }
         try {
             return objectMapper.writeValueAsString(cmd);
         } catch (Exception e) {

@@ -1,6 +1,7 @@
 package com.xmut.shop.config;
 
 import com.xmut.shop.agent.GisInteractionAgent;
+import com.xmut.shop.agent.RemoteSensingInterpretationAgent;
 import com.xmut.shop.agent.ReportParamExtractor;
 import com.xmut.shop.agent.ReportWriterAgent;
 import com.xmut.shop.agent.TemporalEvolutionAgent;
@@ -49,6 +50,20 @@ public class MultiAgentConfig {
                 .chatModel(chatModel)
                 .chatMemoryProvider(chatMemoryProvider)
                 .tools(samplePointsController, differenceController)
+                .build();
+    }
+
+    /**
+     * 遥感解译智能体：只暴露工具注册表查询工具（与 GIS 空间交互智能体同构）
+     */
+    @Bean
+    public RemoteSensingInterpretationAgent remoteSensingInterpretationAgent(OpenAiChatModel chatModel,
+                                                                             ChatMemoryProvider chatMemoryProvider,
+                                                                             SysAgentToolController sysAgentToolController) {
+        return AiServices.builder(RemoteSensingInterpretationAgent.class)
+                .chatModel(chatModel)
+                .chatMemoryProvider(chatMemoryProvider)
+                .tools(sysAgentToolController)
                 .build();
     }
 

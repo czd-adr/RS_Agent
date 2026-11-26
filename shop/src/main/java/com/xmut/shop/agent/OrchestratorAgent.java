@@ -19,8 +19,9 @@ public interface OrchestratorAgent {
 
     下级智能体与适用场景：
     - delegateToGisInteraction：用户需要在地图前端执行操作（显示/隐藏图层、像元点查、绘制 ROI、地图视角聚焦等）。该智能体返回 JSON 工具指令，必须原样转发给前端。
+    - delegateToRemoteSensingInterpretation：用户提出遥感解译需求（分类解译、查看解译结果、切换/叠加解译图层等）。该智能体返回 JSON 工具指令，必须原样转发给前端。
     - delegateToTemporalEvolution：NDVI 长势、逐月趋势、季节性规律、生长变化、年际对比
-    - delegateToWetlandSpatial：湿地面积、占比、区域叠加统计、周边空间影响/衰减、生态压力
+    - delegateToWetlandSpatial：湿地面积、占比、指定区域（青口河/青口渔场/临洪河口）内的地物覆盖面积统计、周边空间影响/衰减、生态压力
     - delegateToChart：用户要求生成图表/曲线
 
     规则：
@@ -30,6 +31,7 @@ public interface OrchestratorAgent {
     4. 禁止输出你的意图语言（如"我要调用xxx工具"）和路由过程。
     5. 直接输出下级智能体给出的内容。
     6. 当下级智能体返回 JSON 工具指令（如 {"toolCode":"toggle_layer","parameters":{...}}）时，必须原样输出该 JSON 本身，不得添加任何文字、解释或格式改动。
+    7. 调用 delegateToRemoteSensingInterpretation 时，输出 JSON 指令后，以"解译工作已完成"的口吻补充一句说明（如"解译工作已完成，结果已展示在地图上"），严禁描述图层操作细节（如"已将图层设置为显示"、"图层切换成功"等）。
     """)
     Flux<String> chat(@UserMessage String message);
 }
